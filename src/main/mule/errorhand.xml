@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="d1da85d4-7089-400f-8af4-20be3605d7b5" >
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="c8da6af0-0a72-4dba-aeca-aa5e03d6b1c4" >
+		<http:request-connection host="training4-american-ws.cloudhub.io" port="80" />
+	</http:request-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="4bb0c705-007c-45c5-93e1-7a7894684002" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="Js@123456" database="employee" />
+	</db:config>
+	<flow name="errorhandFlow" doc:id="a6617273-d9b6-4d5c-835b-e490f7952c28" >
+		<http:listener doc:name="Listener" doc:id="359d1f71-40f2-4e40-a661-64e865407950" config-ref="HTTP_Listener_config" path="/errorhandler"/>
+		<logger level="INFO" doc:name="Logger" doc:id="b7b2ce5f-6398-4154-994a-0798f610732a" message="FlowStarted"/>
+		<http:request method="GET" doc:name="Request" doc:id="d459df08-8bc1-4ed4-b542-ef43faf6f423" config-ref="HTTP_Request_configuration" path="/api/flights">
+		</http:request>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="e0953267-f2a4-41d5-8f60-43084a92869a" variableName="request"/>
+		<try doc:name="Try" doc:id="1cca7ec4-b277-4c2b-897a-10e026d2c5b0" >
+			<db:select doc:id="e1d7a2b7-7117-4ddb-80c6-3c57e263a190" config-ref="Database_Config">
+			<db:sql><![CDATA[select * from employee;]]></db:sql>
+		</db:select>
+			<error-handler>
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="85984a80-c315-4b09-89df-d3179ddc1558" >
+					<ee:transform doc:name="Transform Message" doc:id="b4dd80ae-4d0f-45d5-9920-9657cd450efd" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+"error":"some error found in db"
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<ee:transform doc:name="Transform Message" doc:id="035e25cf-61a2-4fa8-ac47-489f7971e2b7" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="67651c31-92a6-4d3a-a57e-62719269af8a" variableName="select"/>
+		<ee:transform doc:name="Transform Message" doc:id="fc075531-6884-44ac-96a5-f842cb7e47b6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message" :"we are creating error handling"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="71231f6a-379b-4049-b4cf-4fda57781772" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+[vars.request] ++ [vars.select] + [payload]
+	
+
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="c0c01542-c49b-40dd-89c6-13dc9d42a1ba" message="FlowEnded"/>
+	</flow>
+</mule>
